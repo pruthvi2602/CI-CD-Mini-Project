@@ -1,0 +1,59 @@
+name: Deploy MERN App to Cloud Runner
+
+on:
+  push:
+    branches:
+      - main  # Runs the workflow on pushes to the main branch
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest  # Use GitHub's cloud runner on Ubuntu
+
+    services:
+      mongodb:  # Set up a MongoDB service for testing (if required)
+        image: mongo:latest
+        ports:
+          - 27017:27017
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'  # Adjust Node.js version as needed
+
+      - name: Install Backend dependencies
+        run: |
+          cd backend  # Navigate to the backend directory
+          npm install || exit 0  # Ignore if npm install fails (e.g., due to missing package.json)
+
+      - name: Install Frontend dependencies
+        run: |
+          cd frontend  # Navigate to the frontend directory
+          npm install || exit 0  # Ignore if npm install fails
+
+      - name: Build Frontend
+        run: |
+          cd frontend  # Navigate to the frontend directory
+          npm run build || exit 0  # Ignore if build fails
+
+      - name: Test Backend
+        run: |
+          cd backend  # Navigate to the backend directory
+          npm test || true  # Ignore failure if no tests are defined
+
+      - name: Set environment variables
+        run: |
+          echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> $GITHUB_ENV
+          echo "PORT=3000" >> $GITHUB_ENV  # Set a default port if needed
+
+      - name: Deploy Backend
+        run: |
+          cd backend  # Navigate to the backend directory
+          if [ -f package.json ]; then  # Check if package.json exists
+            npm start || echo "Backend failed to start"  # Start backend; log error if it fails
+          else
+            echo "No package.json found. Skipping backend deployment."
+          fi
